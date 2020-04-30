@@ -57,14 +57,14 @@ def read_camera_model(models_dir):
     cx = intrinsics[0, 2]
     cy = intrinsics[0, 3]
     # 4x4 matrix that transforms x-forward coordinate frame at camera origin and image frame for specific lens
-    G_camera_image = intrinsics[1:5, 0:4]
-    # LUT for undistortion
-    # LUT consists of (u,v) pair for each pixel)
+    g_camera_image = intrinsics[1:5, 0:4]
+    # Look-up table for undistortion
+    # Look-up table consists of (u,v) pair for each pixel)
     lut = np.fromfile(lut_path, np.double)
     lut = lut.reshape([2, lut.size // 2])
-    LUT = lut.transpose()
+    look_up_table = lut.transpose()
 
-    return fx, fy, cx, cy, G_camera_image, LUT
+    return fx, fy, cx, cy, g_camera_image, look_up_table
 
 
 def extract_locations(dataset_location):

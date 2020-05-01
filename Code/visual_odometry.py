@@ -46,6 +46,7 @@ if __name__ == '__main__':
         next_img = next_img[150:650, 0:1280]
         # Extract key features using SIFT
         features_curr, features_next = motion_estimator.extract_features(current_img, next_img)
+        fundamental_mat, inliers_curr, inliers_next = motion_estimator.ransac_with_8_point(features_curr, features_next)
         # cv2.imshow('Frame', curr_img)
         # key = cv2.waitKey(1)
         # if key == 27:

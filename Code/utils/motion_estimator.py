@@ -125,11 +125,12 @@ class MotionEstimator:
         s_new = np.array([[s[0], 0, 0],
                           [0, s[1], 0],
                           [0, 0, 0]])
-        return u @ s_new @ v_new
+        f_mat = u @ s_new @ v_new
+        return f_mat
 
     def check_fundamental_matrix(self, feature_curr, feature_next, fundamental_mat):
         """
-        Calculate transpose(x2).F.x1
+        Method to calculate transpose(x2).F.x1 and check if it satisfies the desired threshold
         :param feature_curr: a tuple of feature in current image frame
         :param feature_next: a tuple of corresponding feature in next image frame
         :param fundamental_mat: a 3x3 array of fundamental matrix
@@ -141,3 +142,45 @@ class MotionEstimator:
         # Estimate transpose(x2).F.x1
         est = abs(np.squeeze(np.matmul(np.matmul(fn_new, fundamental_mat), fc_new)))
         return est < self.epsilon
+
+    def calc_essential_matrix(self, fundamental_mat):
+        """
+        Method to calculate the essential matrix
+        :param fundamental_mat: a numpy 3x3 array of fundamental matrix
+        :return: a numpy 3x3 array of essential matrix
+        """
+        temp = np.matmul(np.matmul(self.k_mat.T, fundamental_mat), self.k_mat)
+        u, _, v = np.linalg.svd(temp, full_matrices=True)
+        sigma = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 0]])
+        essential_mat = np.matmul(np.matmul(u, sigma), v)
+        return essential_mat
+
+    @staticmethod
+    def estimate_camera_pose(essential_mat):
+        """
+        Estimate the pose of the camera
+        :param essential_mat: a numpy 3x3 array of essential matrix
+        :return: a tuple containing camera centers and
+        """
+        camera_centers, rotation_matrices = [], []
+        u, _, v = np.linalg.svd(essential_mat)
+        w_mat = np.array([[0, -1, 0], [1, 0, 0], [0, 0, 1]])
+        # Get the 4 pose configurations of the camera
+        for i in range(4):
+            # Evaluate center of camera for camera pose
+            cam_center = u[:, 2]
+            # Check if additive inverse needs to be taken
+            if i % 2 == 1:
+                cam_center = -cam_center
+            # Evaluate rotation matrix for camera pose
+            # Check whether transpose of W matrix needs to be taken
+            if i < 2:
+                rotation_mat = u @ w_mat @ v
+            else:
+                rotation_mat = u @ w_mat.T @ v
+            # Check for negative determinant condition
+            if np.linalg.det(rotation_mat) < 0:
+                cam_center, rotation_mat = -cam_center, -rotation_mat
+            camera_centers.append(cam_center)
+            rotation_matrices.append(rotation_mat)
+        return camera_centers, rotation_matrices

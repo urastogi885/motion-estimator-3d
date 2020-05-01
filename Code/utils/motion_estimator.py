@@ -26,11 +26,16 @@ class MotionEstimator:
     A class to estimate 3D motion of a camera
     """
     def __init__(self, focal_lengths, principal_pts):
+        # Define K-matrix using camera parameters
         self.k_mat = np.array([[focal_lengths[0], 0, principal_pts[0]],
                                [0, focal_lengths[1], principal_pts[1]],
                                [0, 0, 1]])
+        # Get inverse of K-matrix
         self.k_mat_inv = np.linalg.inv(self.k_mat)
+        # Define no. of iterations for RANSAC
         self.iterations = 50
+        # Define threshold for outlier rejection in RANSAC
+        self.epsilon = 0.01
         # Create SIFT detector object
         self.sift = cv2.xfeatures2d.SIFT_create()
         # Define parameters for Flann-based matcher
@@ -61,6 +66,12 @@ class MotionEstimator:
         return features_curr, features_next
 
     def ransac_with_8_point(self, features_curr, features_next):
+        """
+        Method to ransac on features of current and next image frame using 8-point algorithm
+        :param features_curr: a list of feature points in the current image frame
+        :param features_next: a list of feature points in the next image frame
+        :return: a tuple containing the 3x3 fundamental matrix, inliers in the current and next image frame
+        """
         count_inliers = 0
         final_fundamental_mat = np.zeros((3, 3))
         # Define list to store inliers from current and next image frame
@@ -75,8 +86,9 @@ class MotionEstimator:
                 good_features_next.append([features_next[pt][0], features_next[pt][1]])
             # Calculate fundamental matrix using these 8 features
             fundamental_mat = self.calc_fundamental_matrix(good_features_curr, good_features_next)
+            # Employ outlier rejection
             for i in range(len(features_curr)):
-                if self.check_fundamental_matrix(features_curr[i], features_next[i], fundamental_mat) < 0.01:
+                if self.check_fundamental_matrix(features_curr[i], features_next[i], fundamental_mat):
                     count += 1
                     temp_features_curr.append(features_curr[i])
                     temp_features_next.append(features_next[i])
@@ -89,6 +101,12 @@ class MotionEstimator:
 
     @staticmethod
     def calc_fundamental_matrix(features_curr, features_next):
+        """
+        Method to estimate the fundamental matrix using 8 points
+        :param features_curr: a list of 8 feature points in the current image frame
+        :param features_next: a list of 8 feature points in the next image frame
+        :return: a 3x3 fundamental matrix
+        """
         a_mat = np.empty((8, 9))
         # Iterate over all features
         for i in range(len(features_curr)):
@@ -109,9 +127,17 @@ class MotionEstimator:
                           [0, 0, 0]])
         return u @ s_new @ v_new
 
-    @staticmethod
-    def check_fundamental_matrix(feature_curr, feature_next, fundamental_mat):
+    def check_fundamental_matrix(self, feature_curr, feature_next, fundamental_mat):
+        """
+        Calculate transpose(x2).F.x1
+        :param feature_curr: a tuple of feature in current image frame
+        :param feature_next: a tuple of corresponding feature in next image frame
+        :param fundamental_mat: a 3x3 array of fundamental matrix
+        :return: true if estimate is less than threshold
+        """
+        # Get transpose of current features
         fc_new = np.array([feature_curr[0], feature_curr[1], 1]).T
         fn_new = np.array([feature_next[0], feature_next[1], 1])
+        # Estimate transpose(x2).F.x1
         est = abs(np.squeeze(np.matmul(np.matmul(fn_new, fundamental_mat), fc_new)))
-        return est
+        return est < self.epsilon

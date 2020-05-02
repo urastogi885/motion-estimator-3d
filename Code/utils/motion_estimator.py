@@ -31,8 +31,6 @@ class MotionEstimator:
         self.k_mat = np.array([[focal_lengths[0], 0, principal_pts[0]],
                                [0, focal_lengths[1], principal_pts[1]],
                                [0, 0, 1]])
-        # Get inverse of K-matrix
-        self.k_mat_inv = np.linalg.inv(self.k_mat)
         # Define no. of iterations for RANSAC
         self.iterations = 50
         # Define threshold for outlier rejection in RANSAC

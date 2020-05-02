@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 from random import randint
+from math import sqrt, atan2
 
 
 def get_8_points(len_features):
@@ -43,6 +44,10 @@ class MotionEstimator:
         search_params = dict(checks=50)
         # Create object of Flann-based matcher
         self.matcher = cv2.FlannBasedMatcher(index_params, search_params)
+        # Define original homogeneous matrix for the camera pose
+        # Camera is considered to be at origin
+        self.original_h = np.identity(4)
+        self.h_mat_last_row = np.array([0, 0, 0, 1])
 
     def extract_features(self, curr_img, next_img):
         """
@@ -97,7 +102,6 @@ class MotionEstimator:
                 final_fundamental_mat = fundamental_mat
                 inliers_curr, inliers_next = temp_features_curr, temp_features_next
         return final_fundamental_mat, inliers_curr, inliers_next
-
 
     @staticmethod
     def calc_fundamental_matrix(features_curr, features_next):
@@ -158,10 +162,11 @@ class MotionEstimator:
     @staticmethod
     def estimate_camera_pose(essential_mat):
         """
-        Estimate the pose of the camera
+        Estimate the various possible poses of the camera
         :param essential_mat: a numpy 3x3 array of essential matrix
-        :return: a tuple containing camera centers and
+        :return: a tuple containing 4 camera centers and 4 rotation matrices
         """
+        # Define empty lists to store camera poses
         camera_centers, rotation_matrices = [], []
         u, _, v = np.linalg.svd(essential_mat)
         w_mat = np.array([[0, -1, 0], [1, 0, 0], [0, 0, 1]])
@@ -181,6 +186,91 @@ class MotionEstimator:
             # Check for negative determinant condition
             if np.linalg.det(rotation_mat) < 0:
                 cam_center, rotation_mat = -cam_center, -rotation_mat
-            camera_centers.append(cam_center)
+            camera_centers.append(cam_center.reshape((3, 1)))
             rotation_matrices.append(rotation_mat)
         return camera_centers, rotation_matrices
+
+    def disambiguate_camera_pose(self, camera_centers, rotation_matrices, inliers_curr, inliers_next):
+        """
+        Method to find the unique camera pose using the 4 possible poses
+        :param camera_centers: a list of camera centers
+        :param rotation_matrices: a list of rotation matrices
+        :param inliers_curr: a list of inliers in the current image frame
+        :param inliers_next: a list of inliers in the next image frame
+        :return: a tuple containing the pose of the camera
+        """
+        check = 0
+        rotation_final, cam_center_final = None, None
+        # Iterate over all the rotation matrices
+        for i in range(len(rotation_matrices)):
+            euler_angles = self.get_euler_angles(rotation_matrices[i])
+            if -50 < euler_angles[0] < 50 and -50 < euler_angles[2] < 50:
+                count = 0
+                cam_pose_new = np.hstack((rotation_matrices[i], camera_centers[i]))
+                for j in range(len(inliers_curr)):
+                    temp_x = self.get_triangulation_point(cam_pose_new, inliers_curr[j], inliers_next[j])
+                    r_mat_row = rotation_matrices[i][2, :].reshape((1, 3))
+                    if np.squeeze(r_mat_row @ (temp_x - camera_centers[i])):
+                        count += 1
+                if check < count:
+                    check = count
+                    rotation_final = rotation_matrices[i]
+                    cam_center_final = camera_centers[i]
+        if cam_center_final[2] > 0:
+            cam_center_final = -cam_center_final
+        return cam_center_final, rotation_final
+
+    @ staticmethod
+    def get_euler_angles(rotation_mat):
+        """
+        Method to get Euler angles using a 3x3 rotation matrix
+        :param rotation_mat: a 3x3 numpy array of rotation matrix
+        :return: a tuple of Euler angles in x,y, and z directions respectively
+        """
+        psi = sqrt((rotation_mat[0][0] ** 2) + (rotation_mat[1][0] ** 2))
+        if not psi < 1e-6:
+            x = atan2(rotation_mat[2][1], rotation_mat[2][2])
+            y = atan2(-rotation_mat[2][1], psi)
+            z = atan2(rotation_mat[1][0], rotation_mat[0][0])
+        else:
+            x = atan2(-rotation_mat[1][2], rotation_mat[1][1])
+            y = atan2(-rotation_mat[2][0], psi)
+            z = 0
+        return (x * 180 / np.pi), (y * 180 / np.pi), (z * 180 / np.pi)
+
+    def get_triangulation_point(self, camera_pose, inlier_curr, inlier_next):
+        """
+        Method to employ triangular check for cheirality condition
+        Method to triangulate inliers
+        :param camera_pose: new camera pose
+        :param inlier_curr: an inlier in the current image frame
+        :param inlier_next: an inlier in the next image frame
+        :return:
+        """
+        x_old = np.array([[0, -1, inlier_curr[1]],
+                          [1, 0, -inlier_curr[0]],
+                          [inlier_curr[1], inlier_curr[0], 0]])
+        x_new = np.array([[0, -1, inlier_next[1]],
+                          [1, 0, -inlier_next[0]],
+                          [inlier_next[1], inlier_next[0], 0]])
+        a_old = x_old @ self.original_h[0:3, :]
+        a_new = x_new @ camera_pose
+        a_mat = np.vstack((a_old, a_new))
+        _, _, v = np.linalg.svd(a_mat)
+        x_final = (v[-1] / v[-1][3]).reshape((4, 1))
+        return x_final[0:3].reshape((3, 1))
+
+    def get_homogeneous_matrix(self, rotation_mat, translation_mat):
+        """
+        Method to get the homogeneous matrix
+        :param rotation_mat: a 3x3 numpy array of rotation matrix
+        :param translation_mat: a 3x1 translation matrix
+        :return: a 4x4 numpy array
+        """
+        # Homogenoeous matrix is of the form: H = [r t
+        #                                          0 1]
+        # where r is a 3x3 rotational matrix and t is a 3x1 translation matrix
+        # Generate a 3x4 matrix of the form [r t]
+        z = np.column_stack((rotation_mat, translation_mat))
+        # Append the constant last row in the 3x4 matrix and return it
+        return np.vstack((z, self.h_mat_last_row))

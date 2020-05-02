@@ -14,9 +14,6 @@ if __name__ == '__main__':
     current_dir = os.path.abspath(os.getcwd())[:-4]
     cam_params = read_camera_model(str(model_location))
     filenames = extract_locations(str(dataset_location))
-    # Create object to define video format and writer
-    video_format = cv2.VideoWriter_fourcc('X', 'V', 'I', 'D')
-    # video_output = cv2.VideoWriter(str(output_location), video_format, 30.0, (1280, 960))
     # Begin pre-processing pipeline
     # If input video does not exist, create it
     if not os.path.exists(current_dir + INPUT_IMAGES):

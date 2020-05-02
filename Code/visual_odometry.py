@@ -50,7 +50,7 @@ if __name__ == '__main__':
         # Retrieve position of camera from homogeneous matrix
         transform = last_h_mat @ origin
         # Plot position of camera
-        plt.scatter(transform[0][0], -transform[2][0], color='r')
+        plt.scatter(transform[0][0], -transform[2][0], color='r', label='Custom Functions')
         # Begin pipeline using opencv in-built methods
         # Convert features of current and next frames into numpy arrays
         f_curr, f_next = np.array(features_curr), np.array(features_next)
@@ -64,7 +64,7 @@ if __name__ == '__main__':
         # Retrieve position of camera from homogeneous matrix
         pose_in_built = h_mat_copy @ origin
         # Plot position of camera recovered using opencv in-built functions
-        plt.scatter(pose_in_built[0][0], -pose_in_built[2][0], color='b')
+        plt.scatter(pose_in_built[0][0], -pose_in_built[2][0], color='b', label='Opencv Functions')
     # Add labels
     plt.title('Camera Pose')
     plt.ylabel('x-coordinate')

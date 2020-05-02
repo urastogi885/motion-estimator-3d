@@ -1,3 +1,5 @@
+import os
+import cv2
 import numpy as np
 from glob import glob
 from scipy.ndimage import map_coordinates as interp2
@@ -81,3 +83,27 @@ def extract_locations(dataset_location):
     # Sort the list and return it
     filename_list.sort()
     return filename_list
+
+
+def generate_undistorted_images(dataset_location, path_save, look_up_table):
+    current_dir = os.path.abspath(os.getcwd())[:-4]
+    filenames = extract_locations(str(dataset_location))
+    # If input video does not exist, create it
+    if not os.path.exists(current_dir + path_save[3:]):
+        print('Input images not found...Generating input images...')
+        os.makedirs(current_dir + path_save[3:-1])
+        # Initialize count to name images accordingly
+        count = 1399381444704913
+        for file in filenames:
+            # Read image in grayscale
+            img_frame = cv2.imread(file, 0)
+            # Convert image into color
+            img_frame = cv2.cvtColor(img_frame, cv2.COLOR_BayerGR2BGR)
+            # Get undistorted image
+            undistorted_img = undistort_image(img_frame, look_up_table)
+            # Name in the same way as the original dataset
+            cv2.imwrite(path_save + str(count) + '.png', undistorted_img)
+            count += 1
+        print('Generated')
+    else:
+        print('Input video found!')

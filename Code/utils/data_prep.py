@@ -71,7 +71,7 @@ def read_camera_model(models_dir):
 
 def extract_locations(dataset_location):
     """
-    Get locations of all JPEG images from the given folder
+    Function to get locations of all JPEG images from the given folder
     :param dataset_location: location of the folder
     :return: a list containing proper location of all JPEG images
     """
@@ -86,6 +86,13 @@ def extract_locations(dataset_location):
 
 
 def generate_undistorted_images(dataset_location, path_save, look_up_table):
+    """
+    Function to generate and save undistorted images
+    :param dataset_location: location of dataset provided by user
+    :param path_save: location to save the undistorted images
+    :param look_up_table: look-up table from camera parameters
+    :return: nothing
+    """
     current_dir = os.path.abspath(os.getcwd())[:-4]
     filenames = extract_locations(str(dataset_location))
     # If input video does not exist, create it

@@ -64,7 +64,7 @@ if __name__ == '__main__':
         # Retrieve position of camera from homogeneous matrix
         pose_in_built = h_mat_copy @ origin
         # Plot position of camera recovered using opencv in-built functions
-        plt.scatter(pose_in_built[0][0], -pose_in_built[2][0], color='b', label='Opencv Functions')
+        plt.scatter(pose_in_built[0][0], pose_in_built[2][0], color='b', label='Opencv Functions')
     # Add labels
     plt.title('Camera Pose')
     plt.ylabel('x-coordinate')

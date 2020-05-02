@@ -3,6 +3,10 @@ import matplotlib.pyplot as plt
 from utils.data_prep import *
 from utils.motion_estimator import MotionEstimator
 
+"""
+:param dataset_location: location of the dataset relative to the project directory
+:param model_location: location of the model text files relative to the project directory
+"""
 script, dataset_location, model_location = argv
 
 

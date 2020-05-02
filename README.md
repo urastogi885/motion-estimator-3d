@@ -63,4 +63,4 @@ python3 visual_odometry.py ../Oxford_dataset/stereo/centre/ ../Oxford_dataset/mo
 ```
 
 - For further documentation on the input arguments, refer 
-[*main.py*](https://github.com/urastogi885/lucas-kanade-tracker/blob/master/Code/visual_odometry.py)
+[*visual_odometry.py*](https://github.com/urastogi885/motion-estimator-3d/blob/master/Code/visual_odometry.py)

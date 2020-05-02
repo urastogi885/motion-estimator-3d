@@ -1,7 +1,7 @@
 import os
 import cv2
 from sys import argv
-from matplotlib.pyplot import scatter, show
+import matplotlib.pyplot as plt
 from utils.data_prep import *
 from utils.motion_estimator import MotionEstimator
 
@@ -39,6 +39,7 @@ if __name__ == '__main__':
     # Create object of motion estimator class
     motion_estimator = MotionEstimator((cam_params[0], cam_params[1]), (cam_params[2], cam_params[3]))
     last_h_mat = motion_estimator.original_h
+    origin = np.array([[0, 0, 0, 1]]).T
     for i in range(len(images) - 1):
         # Read current and next frame
         current_img = cv2.imread(images[i], cv2.COLOR_BGR2GRAY)
@@ -59,13 +60,11 @@ if __name__ == '__main__':
                                                                                   inliers_curr, inliers_next)
         # Get the homogeneous transform using the final camera pose
         last_h_mat = last_h_mat @ motion_estimator.get_homogeneous_matrix(final_r_mat, final_cam_center)
-        transform = last_h_mat @ motion_estimator.h_mat_last_row.T
-        print(transform[0], -transform[2])
-        scatter(transform[0], -transform[2], color='r')
-
-        # cv2.imshow('Frame', curr_img)
-        # key = cv2.waitKey(1)
-        # if key == 27:
-        #     break
-    show()
+        transform = last_h_mat @ origin
+        plt.scatter(transform[0][0], -transform[2][0], color='r')
+    plt.title('Camera Pose')
+    plt.ylabel('x-coordinate')
+    plt.xlabel('z-coordinate')
+    plt.show()
+    plt.savefig('plot.png')
     print('Done!')

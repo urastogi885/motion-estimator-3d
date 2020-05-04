@@ -5,8 +5,6 @@
 
 This project estimates 3-D motion to implement visual odometry. Motion estimating is implemented on an Oxford dataset that can be found [*here*](https://drive.google.com/file/d/12Ir2kZ3kRgCe8vqaedT-dlpj-Z8vqhPO/view?usp=sharing).
 
-The output videos can be viewed from [*here*](https://drive.google.com/open?id=1Ew3KA2jCv9skvMRkmsExJqWqKfWjQpm2).
-
 ## Dependencies
 
 - Python3

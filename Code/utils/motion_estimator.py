@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 from random import randint
+from scipy.optimize import least_squares
 from math import sqrt, atan2
 
 
@@ -32,7 +33,7 @@ class MotionEstimator:
                                [0, focal_lengths[1], principal_pts[1]],
                                [0, 0, 1]])
         # Define no. of iterations for RANSAC
-        self.iterations = 50
+        self.iterations = 60
         # Define threshold for outlier rejection in RANSAC
         self.epsilon = 0.01
         # Create SIFT detector object
@@ -46,6 +47,8 @@ class MotionEstimator:
         # Camera is considered to be at origin
         self.original_h = np.identity(4)
         self.h_mat_last_row = np.array([0, 0, 0, 1])
+        self.u = np.zeros((3, 1))
+        self.v = np.identity(3)
 
     def extract_features(self, curr_img, next_img):
         """
@@ -198,25 +201,28 @@ class MotionEstimator:
         :return: a tuple containing the pose of the camera
         """
         check = 0
-        rotation_final, cam_center_final = None, None
+        rotation_final, cam_center_final, x_final = None, None, None
         # Iterate over all the rotation matrices
         for i in range(len(rotation_matrices)):
             euler_angles = self.get_euler_angles(rotation_matrices[i])
             if -50 < euler_angles[0] < 50 and -50 < euler_angles[2] < 50:
                 count = 0
+                x_inlier = None
                 cam_pose_new = np.hstack((rotation_matrices[i], camera_centers[i]))
                 for j in range(len(inliers_curr)):
                     temp_x = self.get_triangulation_point(cam_pose_new, inliers_curr[j], inliers_next[j])
                     r_mat_row = rotation_matrices[i][2, :].reshape((1, 3))
                     if np.squeeze(r_mat_row @ (temp_x - camera_centers[i])):
                         count += 1
+                        x_inlier = temp_x
                 if check < count:
                     check = count
                     rotation_final = rotation_matrices[i]
                     cam_center_final = camera_centers[i]
+                    x_final = x_inlier
         if cam_center_final[2] > 0:
             cam_center_final = -cam_center_final
-        return cam_center_final, rotation_final
+        return cam_center_final, rotation_final, x_final
 
     @ staticmethod
     def get_euler_angles(rotation_mat):
@@ -272,3 +278,48 @@ class MotionEstimator:
         z = np.column_stack((rotation_mat, translation_mat))
         # Append the constant last row in the 3x4 matrix and return it
         return np.vstack((z, self.h_mat_last_row))
+
+    @staticmethod
+    def get_drift(drift, custom_pose, opencv_pose):
+        """
+        Evalute drift between 2 trajectories
+        :param drift: drift from the previous frame
+        :param custom_pose: pose of the camera using our pipeline
+        :param opencv_pose: pose of the camera using opencv's in-built functions
+        :return: drift of the current frame
+        """
+        drift += sqrt(((custom_pose[0] - opencv_pose[1]) ** 2) + ((custom_pose[0] - opencv_pose[1]) ** 2))
+        return drift
+
+    def get_triangulation_error(self, x_linear, camera_pose):
+        """
+        Get the error in linear triangulation
+        :param x_linear: X returned from linear triangulation
+        :param camera_pose: a tuple containing rotation and translation matrices
+        :return: error between the current and next frame
+        """
+        p_old = np.matmul(self.k_mat, self.original_h[0:3, :])
+        p_new = np.matmul(self.k_mat, camera_pose)
+        x_linear = np.reshape(x_linear, (np.shape(x_linear)[0], 1))
+        x_0 = np.insert(x_linear, 3, 1)
+        x_pt = np.reshape(x_0, (4, 1))
+        error_1 = (self.u[0] - (np.dot(p_old[0], x_pt) / np.dot(p_old[2], x_pt))) ** 2 + (
+                    self.u[1] - (np.dot(p_old[1], x_pt) / np.dot(p_new[2], x_pt))) ** 2
+        error_2 = (self.v[0] - (np.dot(p_new[0], x_pt) / np.dot(p_new[2], x_pt))) ** 2 + (
+                    self.v[1] - (np.dot(p_new[1], x_pt) / np.dot(p_old[2], x_pt))) ** 2
+        error_total = error_1 + error_2
+        return error_total
+
+    def nonlinear_triangulation(self, x_linear, camera_pose, inlier_curr, inlier_next):
+        """
+        Method to employ non-linear triangulation
+        :param x_linear: X returned from linear triangulation
+        :param camera_pose: a tuple containing rotation and translation matrices
+        :param inlier_curr: inliers from the current image frame
+        :param inlier_next: inliers from the next image frame
+        :return:
+        """
+        x_init = np.reshape(x_linear, (np.shape(x_linear)[0]))
+        error = self.get_triangulation_error(x_linear, camera_pose)
+        refined_pts = least_squares(error, x_init, args=(self, x_linear, camera_pose, inlier_curr, inlier_next))
+        return refined_pts

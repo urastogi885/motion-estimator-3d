@@ -16,7 +16,6 @@ if __name__ == '__main__':
     cam_params = read_camera_model(str(model_location))
     # Begin pre-processing pipeline
     generate_undistorted_images(str(dataset_location), save_path, cam_params[-1])
-    # Begin basic pipeline
     print('Processing...')
     # Extract paths of all undistorted images
     images = extract_locations(save_path)
@@ -27,7 +26,10 @@ if __name__ == '__main__':
     # Save copy of previous homogeneous transform
     h_mat_copy = last_h_mat.copy()
     origin = np.array([[0, 0, 0, 1]]).T
+    # Define drift variable
+    drift = 0
     for i in range(18, len(images) - 1):
+        # Begin basic pipeline
         # Read current and next frame
         current_img = cv2.imread(images[i], cv2.COLOR_BGR2GRAY)
         next_img = cv2.imread(images[i+1], cv2.COLOR_BGR2GRAY)
@@ -43,14 +45,19 @@ if __name__ == '__main__':
         # Get all possible camera poses using the essential matrix
         cam_centers, rotation_mats = motion_estimator.estimate_camera_pose(essential_mat)
         # Get the final camera pose
-        final_cam_center, final_r_mat = motion_estimator.disambiguate_camera_pose(cam_centers, rotation_mats,
-                                                                                  inliers_curr, inliers_next)
+        final_cam_center, final_r_mat, final_x = motion_estimator.disambiguate_camera_pose(cam_centers, rotation_mats,
+                                                                                           inliers_curr, inliers_next)
+        # Perform non-linear triangulation
+        refined_point = motion_estimator.nonlinear_triangulation(final_x, (final_r_mat, final_cam_center),
+                                                                 inliers_curr, inliers_next)
         # Get the homogeneous transform using the final camera pose
         last_h_mat = last_h_mat @ motion_estimator.get_homogeneous_matrix(final_r_mat, final_cam_center)
         # Retrieve position of camera from homogeneous matrix
         transform = last_h_mat @ origin
         # Plot position of camera
-        plt.scatter(transform[0][0], -transform[2][0], color='r', label='Custom Functions')
+        plt.figure(1)
+        plt.scatter(transform[0][0], -transform[2][0], color='r')
+
         # Begin pipeline using opencv in-built methods
         # Convert features of current and next frames into numpy arrays
         f_curr, f_next = np.array(features_curr), np.array(features_next)
@@ -63,12 +70,18 @@ if __name__ == '__main__':
         h_mat_copy = h_mat_copy @ motion_estimator.get_homogeneous_matrix(r_mat, t_mat)
         # Retrieve position of camera from homogeneous matrix
         pose_in_built = h_mat_copy @ origin
+        # Evaluate drift
+        drift = motion_estimator.get_drift(drift, (transform[0][0], transform[2][0]),
+                                           (pose_in_built[0][0], pose_in_built[2][0]))
         # Plot position of camera recovered using opencv in-built functions
-        plt.scatter(pose_in_built[0][0], pose_in_built[2][0], color='b', label='Opencv Functions')
-    # Add labels
-    plt.title('Camera Pose')
+        plt.figure(1)
+        plt.scatter(pose_in_built[0][0], -pose_in_built[2][0], color='b')
+    # Add labels to the plot
+    plt.title('Camera Pose using opencv functions')
     plt.ylabel('x-coordinate')
     plt.xlabel('z-coordinate')
-    # Show final plot
+    # Show the plot
     plt.show()
+    # Display final drift
+    print('Final drift:', drift)
     print('Done!')

@@ -5,6 +5,11 @@
 
 This project estimates 3-D motion to implement visual odometry. Motion estimating is implemented on an Oxford dataset that can be found [*here*](https://drive.google.com/file/d/12Ir2kZ3kRgCe8vqaedT-dlpj-Z8vqhPO/view?usp=sharing).
 
+<p align="center">
+  <img src="https://github.com/urastogi885/motion-estimator-3d/blob/master/images/plot.png">
+  <br><b>Figure 1 - Final trajectory of camera using our pipeline</b><br>
+</p>
+
 ## Dependencies
 
 - Python3
@@ -36,7 +41,6 @@ import numpy, scipy, glob, random
 ```
 ## Run
 
-
 - Download each of the dataset mentioned in the [*Overview Section*](https://github.com/urastogi885/motion-estimator-3d#overview).
 - It is recommended that you save the dataset within outer-most directory-level of the project otherwise it will become 
 too cumbersome for you to reference the correct location of the file.
@@ -62,3 +66,10 @@ python3 visual_odometry.py ../Oxford_dataset/stereo/centre/ ../Oxford_dataset/mo
 
 - For further documentation on the input arguments, refer 
 [*visual_odometry.py*](https://github.com/urastogi885/motion-estimator-3d/blob/master/Code/visual_odometry.py)
+
+- The comparison between the 2 trajectories would seem something like this:
+
+<p align="center">
+  <img src="https://github.com/urastogi885/motion-estimator-3d/blob/master/images/comparison.png">
+  <br><b>Figure 1 - Comparison between camera trajectories our pipeline vs OpenCV functions</b><br>
+</p>

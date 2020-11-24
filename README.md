@@ -1,5 +1,5 @@
 # 3D-Motion-Estimator
-[![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://github.com/urastogi885/motion-estimator-3d/blob/master/LICENSE)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/urastogi885/motion-estimator-3d/blob/master/LICENSE)
 
 ## Overview
 
